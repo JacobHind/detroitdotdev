@@ -1,0 +1,46 @@
+name: Build Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build site
+        run: python tools/build_site.py
+
+      - name: Verify build output
+        run: |
+          test -f site/index.html || (echo "index.html missing" && exit 1)
+          echo "Build OK — $(find site -name '*.html' | wc -l) HTML files generated"
+
+      - name: Check for broken internal links
+        run: |
+          python -c "
+          import re, sys
+          from pathlib import Path
+          site = Path('site')
+          errors = []
+          for html in site.rglob('*.html'):
+              content = html.read_text()
+              for match in re.finditer(r'href=\"([^\"#][^\"]*\.html)\"', content):
+                  target = (html.parent / match.group(1)).resolve()
+                  if not target.exists():
+                      errors.append(f'{html}: broken link to {match.group(1)}')
+          if errors:
+              print('\n'.join(errors))
+              sys.exit(1)
+          print('No broken internal links')
+          "

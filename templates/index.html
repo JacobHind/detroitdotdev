@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>detroit.dev corpus</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #1a1a2e;
+      --accent: #0066cc;
+      --accent-light: #e8f0fe;
+      --border: #e0e0e0;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --max-width: 720px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16161a;
+        --fg: #e0e0e0;
+        --accent: #5b9df5;
+        --accent-light: #1e2a3a;
+        --border: #2e2e38;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--fg);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      font-size: 14px;
+    }
+    .site-header a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 15px;
+    }
+    .article-list {
+      list-style: none;
+    }
+    .article-list li {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .article-list li:last-child {
+      border-bottom: none;
+    }
+    .article-list a {
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .article-list a:hover {
+      color: var(--accent);
+    }
+    .article-list .meta {
+      font-size: 13px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .article-list .tags span {
+      display: inline-block;
+      font-size: 11px;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 1px 8px;
+      border-radius: 10px;
+      margin-right: 4px;
+      font-weight: 500;
+    }
+    .empty {
+      color: #888;
+      font-style: italic;
+    }
+    .toc-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .toc-nav a {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 4px 12px;
+      border-radius: 14px;
+      background: var(--accent-light);
+      transition: opacity 0.15s;
+    }
+    .toc-nav a:hover { opacity: 0.8; }
+    .topic-section {
+      margin-bottom: 40px;
+    }
+    .topic-heading {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--accent-light);
+      letter-spacing: -0.01em;
+    }
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .member-card {
+      display: block;
+      text-decoration: none;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .member-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .member-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .member-role {
+      font-size: 13px;
+      color: #888;
+      margin-top: 2px;
+    }
+    .member-gh {
+      font-size: 12px;
+      color: var(--accent);
+      margin-top: 4px;
+      font-family: monospace;
+    }
+    .member-card.add-yourself {
+      border-style: dashed;
+      opacity: 0.7;
+    }
+    .member-card.add-yourself:hover {
+      opacity: 1;
+    }
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+    }
+    .site-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a href="https://detroit.dev">detroit.dev</a> / corpus
+  </header>
+
+  <main class="container">
+    <h1>detroit.dev</h1>
+    <p class="subtitle">Community-contributed notes, research, and knowledge — built in Detroit.</p>
+
+    <nav class="toc-nav">
+      {% for topic_name in grouped %}<a href="#{{ topic_name | lower | replace(' ', '-') | replace('&', '') | replace('  ', '-') }}">{{ topic_name }}</a>{% endfor %}
+      {% if members %}<a href="#community">Community</a>{% endif %}
+    </nav>
+
+    {% if grouped %}
+    {% for topic_name, topic_articles in grouped.items() %}
+    <section class="topic-section" id="{{ topic_name | lower | replace(' ', '-') | replace('&', '') | replace('  ', '-') }}">
+      <h2 class="topic-heading">{{ topic_name }}</h2>
+      <ul class="article-list">
+        {% for a in topic_articles %}
+        <li>
+          <a href="{{ a.href }}">{{ a.title }}</a>
+          <div class="meta">
+            {% if a.author %}{{ a.author }}{% endif %}
+            {% if a.date %} · {{ a.date }}{% endif %}
+          </div>
+          {% if a.tags %}
+          <div class="tags">
+            {% for tag in a.tags %}<span>{{ tag }}</span>{% endfor %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+    {% else %}
+    <p class="empty">No articles yet. Add markdown files to corpus/ and rebuild.</p>
+    {% endif %}
+
+    {% if members %}
+    <section class="topic-section" id="community">
+      <h2 class="topic-heading">Community</h2>
+      <div class="members-grid">
+        {% for m in members %}
+        <a href="{{ m.href }}" class="member-card">
+          <div class="member-name">{{ m.name }}</div>
+          {% if m.role %}<div class="member-role">{{ m.role }}</div>{% endif %}
+          {% if m.github %}<div class="member-gh">@{{ m.github }}</div>{% endif %}
+        </a>
+        {% endfor %}
+        <a href="https://github.com/detroitdotdev/corpus/tree/main/corpus/members" class="member-card add-yourself">
+          <div class="member-name">+ Add yourself</div>
+          <div class="member-role">Create a PR with your page</div>
+        </a>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="site-footer">
+    <a href="https://detroit.dev">detroit.dev</a> · community corpus ·
+    <a href="https://github.com/detroitdotdev">github</a>
+  </footer>
+</body>
+</html>

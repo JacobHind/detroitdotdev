@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — detroit.dev</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #1a1a2e;
+      --accent: #0066cc;
+      --accent-light: #e8f0fe;
+      --border: #e0e0e0;
+      --code-bg: #f5f5f5;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Source Serif 4', 'Georgia', serif;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      --max-width: 720px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16161a;
+        --fg: #e0e0e0;
+        --accent: #5b9df5;
+        --accent-light: #1e2a3a;
+        --border: #2e2e38;
+        --code-bg: #1e1e28;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--serif);
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--fg);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header bar */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    .site-header a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* Article layout */
+    .article-container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Title block */
+    .article-meta {
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+    }
+    .article-meta h1 {
+      font-family: var(--sans);
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+    .article-meta .byline {
+      font-family: var(--sans);
+      font-size: 14px;
+      color: #888;
+    }
+    .article-meta .byline a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .article-tags {
+      margin-top: 12px;
+    }
+    .article-tags span {
+      display: inline-block;
+      font-family: var(--sans);
+      font-size: 12px;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 12px;
+      margin-right: 6px;
+      font-weight: 500;
+    }
+
+    /* Prose */
+    .article-body h2 {
+      font-family: var(--sans);
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+    .article-body h3 {
+      font-family: var(--sans);
+      font-size: 20px;
+      font-weight: 600;
+      margin-top: 36px;
+      margin-bottom: 12px;
+    }
+    .article-body h4 {
+      font-family: var(--sans);
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #888;
+    }
+    .article-body p {
+      margin-bottom: 20px;
+      max-width: 65ch;
+    }
+    .article-body a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .article-body strong {
+      font-weight: 700;
+    }
+    .article-body ul, .article-body ol {
+      margin-bottom: 20px;
+      padding-left: 28px;
+    }
+    .article-body li {
+      margin-bottom: 6px;
+      max-width: 65ch;
+    }
+    .article-body blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 24px 0;
+      padding: 12px 20px;
+      background: var(--accent-light);
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+    }
+
+    /* Code */
+    .article-body code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .article-body pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      margin: 24px 0;
+      line-height: 1.5;
+    }
+    .article-body pre code {
+      background: none;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    /* Tables */
+    .article-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-family: var(--sans);
+      font-size: 15px;
+    }
+    .article-body th, .article-body td {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+    .article-body th {
+      background: var(--accent-light);
+      font-weight: 600;
+    }
+
+    /* TOC sidebar (shows on wide screens) */
+    @media (min-width: 1100px) {
+      .toc-sidebar {
+        position: fixed;
+        top: 80px;
+        left: calc(50% + var(--max-width) / 2 + 40px);
+        width: 220px;
+        font-family: var(--sans);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .toc-sidebar ul {
+        list-style: none;
+        padding: 0;
+      }
+      .toc-sidebar li {
+        margin-bottom: 4px;
+      }
+      .toc-sidebar a {
+        color: #888;
+        text-decoration: none;
+      }
+      .toc-sidebar a:hover {
+        color: var(--accent);
+      }
+      .toc-sidebar .toc-title {
+        font-weight: 600;
+        color: var(--fg);
+        margin-bottom: 8px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+    }
+    @media (max-width: 1099px) {
+      .toc-sidebar { display: none; }
+    }
+
+    /* Permalink anchors */
+    .headerlink {
+      color: #ccc;
+      text-decoration: none;
+      margin-left: 8px;
+      font-size: 0.7em;
+      vertical-align: middle;
+    }
+    .headerlink:hover {
+      color: var(--accent);
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: #888;
+    }
+    .site-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Syntax highlighting (Pygments) */
+    .highlight .hll { background-color: #ffc; }
+    .highlight .k { color: #0066cc; font-weight: bold; }
+    .highlight .s { color: #b07040; }
+    .highlight .c { color: #888; font-style: italic; }
+    .highlight .n { color: var(--fg); }
+    .highlight .o { color: #666; }
+    .highlight .p { color: #666; }
+    .highlight .mi { color: #8b5cf6; }
+    .highlight .mf { color: #8b5cf6; }
+    .highlight .nb { color: #0e7490; }
+    .highlight .nf { color: #b45309; }
+    .highlight .nn { color: #0066cc; }
+
+    /* Reader controls panel */
+    .reader-toggle {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.15s;
+    }
+    .reader-toggle:hover { transform: scale(1.1); }
+
+    .reader-panel {
+      position: fixed;
+      bottom: 76px;
+      right: 24px;
+      z-index: 100;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      width: 260px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      font-family: var(--sans);
+      font-size: 13px;
+      display: none;
+    }
+    .reader-panel.open { display: block; }
+    .reader-panel .rp-label {
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+    .reader-panel .rp-label:first-child { margin-top: 0; }
+    .reader-panel .rp-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .reader-panel .rp-btn {
+      flex: 1;
+      min-width: 0;
+      padding: 6px 4px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      font-family: var(--sans);
+      font-size: 13px;
+      text-align: center;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .reader-panel .rp-btn:hover { border-color: var(--accent); }
+    .reader-panel .rp-btn.active {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Theme overrides applied via data attributes on <html> */
+    html[data-theme="dark"] {
+      --bg: #16161a; --fg: #e0e0e0; --accent: #5b9df5;
+      --accent-light: #1e2a3a; --border: #2e2e38; --code-bg: #1e1e28;
+    }
+    html[data-theme="light"] {
+      --bg: #fafafa; --fg: #1a1a2e; --accent: #0066cc;
+      --accent-light: #e8f0fe; --border: #e0e0e0; --code-bg: #f5f5f5;
+    }
+    html[data-theme="sepia"] {
+      --bg: #f4ecd8; --fg: #3b2e1a; --accent: #8b5e3c;
+      --accent-light: #ece1c8; --border: #d4c5a0; --code-bg: #ece1c8;
+    }
+
+    html[data-font="sans"] .article-body { font-family: var(--sans); }
+    html[data-font="serif"] .article-body { font-family: var(--serif); }
+    html[data-font="mono"] .article-body { font-family: var(--mono); }
+    html[data-font="humanist"] .article-body { font-family: 'Verdana', 'Tahoma', 'Geneva', sans-serif; }
+    html[data-font="opendy"] .article-body { font-family: 'OpenDyslexic', 'Comic Sans MS', cursive; letter-spacing: 0.05em; word-spacing: 0.12em; }
+    html[data-font="system"] .article-body { font-family: system-ui, -apple-system, sans-serif; }
+
+    /* Text highlighting for AI selection */
+    .ai-highlight {
+      background: rgba(91, 157, 245, 0.25);
+      border-bottom: 2px solid var(--accent);
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    .ai-highlight:hover {
+      background: rgba(91, 157, 245, 0.4);
+    }
+
+    /* Floating "Ask AI" tooltip on text selection */
+    .ask-tooltip {
+      position: absolute;
+      z-index: 200;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      user-select: none;
+    }
+    .ask-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--fg);
+    }
+
+    /* AI Chat sidebar */
+    .ai-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 380px;
+      height: 100vh;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+    }
+    .ai-panel.open {
+      transform: translateX(0);
+    }
+    .ai-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .ai-panel-header button {
+      background: none;
+      border: none;
+      color: var(--fg);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .ai-panel-selections {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--sans);
+      font-size: 12px;
+      flex-shrink: 0;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .ai-panel-selections .sel-label {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+      font-size: 10px;
+      margin-bottom: 6px;
+    }
+    .ai-sel-chip {
+      display: inline-block;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 10px;
+      margin: 2px 4px 2px 0;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ai-sel-chip::after {
+      content: ' ×';
+      opacity: 0.5;
+    }
+    .ai-sel-chip:hover::after {
+      opacity: 1;
+    }
+    .ai-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 18px;
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .ai-msg {
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      max-width: 95%;
+    }
+    .ai-msg.user {
+      background: var(--accent-light);
+      color: var(--accent);
+      align-self: flex-end;
+      margin-left: auto;
+    }
+    .ai-msg.assistant {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+    }
+    .ai-msg.assistant pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    .ai-msg.error {
+      background: #fee;
+      color: #a00;
+      border: 1px solid #fcc;
+    }
+    .ai-msg .thinking {
+      opacity: 0.5;
+      font-style: italic;
+    }
+    .ai-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ai-input-row input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 14px;
+      outline: none;
+    }
+    .ai-input-row input:focus {
+      border-color: var(--accent);
+    }
+    .ai-input-row button {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ai-input-row button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* AI settings bar */
+    .ai-settings {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--sans);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .ai-settings summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+      user-select: none;
+    }
+    .ai-settings-body { margin-top: 10px; }
+    .ai-settings label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 8px;
+      margin-bottom: 3px;
+    }
+    .ai-settings label:first-child { margin-top: 0; }
+    .ai-settings select, .ai-settings input[type="password"], .ai-settings input[type="text"] {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 12px;
+    }
+    .ai-settings .byok-note {
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* AI toggle button */
+    .ai-toggle {
+      position: fixed;
+      bottom: 76px;
+      right: 24px;
+      z-index: 100;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.15s;
+    }
+    .ai-toggle:hover { transform: scale(1.1); }
+
+    @media (max-width: 900px) {
+      .ai-panel { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a href="https://detroit.dev">detroit.dev</a> / <a href="/index.html">corpus</a>
+  </header>
+
+  {% if toc %}
+  <nav class="toc-sidebar">
+    <div class="toc-title">Contents</div>
+    {{ toc }}
+  </nav>
+  {% endif %}
+
+  <main class="article-container">
+    <div class="article-meta">
+      <h1>{{ title }}</h1>
+      <div class="byline">
+        {% if author %}{{ author }}{% endif %}
+        {% if date %} · {{ date }}{% endif %}
+        {% if source %} · <a href="{{ source }}">source</a>{% endif %}
+      </div>
+      {% if tags %}
+      <div class="article-tags">
+        {% for tag in tags %}<span>{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="article-body">
+      {{ content }}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <a href="https://detroit.dev">detroit.dev</a> · community corpus ·
+    <a href="https://github.com/detroitdotdev">github</a>
+  </footer>
+
+  <!-- Reader controls (Kindle-style) -->
+  <button class="reader-toggle" id="readerToggle" title="Reading preferences">Aa</button>
+  <button class="ai-toggle" id="aiToggle" title="AI assistant">💬</button>
+  <div class="ask-tooltip" id="askTooltip">Ask AI ⏎</div>
+  <div class="reader-panel" id="readerPanel">
+    <div class="rp-label">Font size</div>
+    <div class="rp-row">
+      <button class="rp-btn" data-size="13" style="font-size:9px">A</button>
+      <button class="rp-btn" data-size="14" style="font-size:10px">A</button>
+      <button class="rp-btn" data-size="15" style="font-size:11px">A</button>
+      <button class="rp-btn" data-size="16" style="font-size:13px">A</button>
+      <button class="rp-btn" data-size="18" style="font-size:15px">A</button>
+      <button class="rp-btn" data-size="21" style="font-size:18px">A</button>
+    </div>
+
+    <div class="rp-label">Font</div>
+    <div class="rp-row">
+      <button class="rp-btn" data-font="serif" style="font-family:Georgia">Serif</button>
+      <button class="rp-btn" data-font="sans" style="font-family:system-ui">Sans</button>
+      <button class="rp-btn" data-font="humanist" style="font-family:Verdana">Verdana</button>
+    </div>
+    <div class="rp-row" style="margin-top:6px">
+      <button class="rp-btn" data-font="opendy" style="font-family:monospace">OpenDys</button>
+      <button class="rp-btn" data-font="mono" style="font-family:monospace">Mono</button>
+      <button class="rp-btn" data-font="system" style="font-family:system-ui">System</button>
+    </div>
+
+    <div class="rp-label">Line spacing</div>
+    <div class="rp-row">
+      <button class="rp-btn" data-lh="1.4">Tight</button>
+      <button class="rp-btn" data-lh="1.7">Normal</button>
+      <button class="rp-btn" data-lh="2.1">Loose</button>
+    </div>
+
+    <div class="rp-label">Width</div>
+    <div class="rp-row">
+      <button class="rp-btn" data-width="580">Narrow</button>
+      <button class="rp-btn" data-width="720">Normal</button>
+      <button class="rp-btn" data-width="900">Wide</button>
+    </div>
+
+    <div class="rp-label">Theme</div>
+    <div class="rp-row">
+      <button class="rp-btn" data-theme="light">Light</button>
+      <button class="rp-btn" data-theme="sepia">Sepia</button>
+      <button class="rp-btn" data-theme="dark">Dark</button>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    var root = document.documentElement;
+    var body = document.querySelector('.article-body');
+    var container = document.querySelector('.article-container');
+    var panel = document.getElementById('readerPanel');
+    var toggle = document.getElementById('readerToggle');
+    var KEY = 'detroitdev_reader';
+
+    var defaults = { size: '16', font: 'serif', lh: '1.7', width: '720', theme: 'light' };
+    var prefs;
+    try { prefs = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { prefs = {}; }
+    for (var k in defaults) { if (!prefs[k]) prefs[k] = defaults[k]; }
+
+    function apply() {
+      body.style.fontSize = prefs.size + 'px';
+      body.style.lineHeight = prefs.lh;
+      root.setAttribute('data-font', prefs.font);
+      root.setAttribute('data-theme', prefs.theme);
+      container.style.maxWidth = prefs.width + 'px';
+      try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch(e) {}
+      updateActive();
+    }
+
+    function updateActive() {
+      panel.querySelectorAll('.rp-btn').forEach(function(btn) {
+        var match = false;
+        if (btn.dataset.size) match = btn.dataset.size === prefs.size;
+        else if (btn.dataset.font) match = btn.dataset.font === prefs.font;
+        else if (btn.dataset.lh) match = btn.dataset.lh === prefs.lh;
+        else if (btn.dataset.width) match = btn.dataset.width === prefs.width;
+        else if (btn.dataset.theme) match = btn.dataset.theme === prefs.theme;
+        btn.classList.toggle('active', match);
+      });
+    }
+
+    panel.addEventListener('click', function(e) {
+      var btn = e.target.closest('.rp-btn');
+      if (!btn) return;
+      if (btn.dataset.size) prefs.size = btn.dataset.size;
+      if (btn.dataset.font) prefs.font = btn.dataset.font;
+      if (btn.dataset.lh) prefs.lh = btn.dataset.lh;
+      if (btn.dataset.width) prefs.width = btn.dataset.width;
+      if (btn.dataset.theme) prefs.theme = btn.dataset.theme;
+      apply();
+    });
+
+    toggle.addEventListener('click', function() {
+      panel.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!panel.contains(e.target) && e.target !== toggle) {
+        panel.classList.remove('open');
+      }
+    });
+
+    apply();
+  })();
+  </script>
+
+  <!-- AI Chat Panel -->
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <span>AI Assistant</span>
+      <div>
+        <button id="aiClear" title="Clear chat">⟳</button>
+        <button id="aiClose" title="Close">×</button>
+      </div>
+    </div>
+    <details class="ai-settings" id="aiSettings">
+      <summary>Model &amp; Settings</summary>
+      <div class="ai-settings-body">
+        <label>Provider</label>
+        <select id="aiProvider">
+          <option value="server">Server default</option>
+          <option value="groq">Groq (free)</option>
+          <option value="nvidia">NVIDIA Nemotron</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="openai">OpenAI</option>
+        </select>
+        <label>Model</label>
+        <select id="aiModel">
+          <option value="">Default</option>
+        </select>
+        <label>Your API key (BYOK)</label>
+        <input type="password" id="aiApiKey" placeholder="Optional — uses server key if blank">
+        <div class="byok-note">Stored in your browser only. Never sent to our server — goes directly to the provider.</div>
+      </div>
+    </details>
+    <div class="ai-panel-selections" id="aiSelections" style="display:none">
+      <div class="sel-label">Selected text</div>
+      <div id="aiSelChips"></div>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg assistant">Select text in the article and click <strong>Ask AI</strong>, or type a question below. I have the full article as context.</div>
+    </div>
+    <div class="ai-input-row">
+      <input type="text" id="aiInput" placeholder="Ask about this article…" autocomplete="off">
+      <button id="aiSend">Send</button>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    var aiPanel = document.getElementById('aiPanel');
+    var aiToggle = document.getElementById('aiToggle');
+    var aiClose = document.getElementById('aiClose');
+    var aiClear = document.getElementById('aiClear');
+    var aiMessages = document.getElementById('aiMessages');
+    var aiInput = document.getElementById('aiInput');
+    var aiSend = document.getElementById('aiSend');
+    var aiSelections = document.getElementById('aiSelections');
+    var aiSelChips = document.getElementById('aiSelChips');
+    var askTooltip = document.getElementById('askTooltip');
+    var articleBody = document.querySelector('.article-body');
+
+    var selections = [];
+    var chatHistory = [];
+    var sending = false;
+    var highlightCounter = 0;
+
+    // Model catalogs per provider
+    var modelCatalogs = {
+      server: [{ value: '', label: 'Server default' }],
+      groq: [
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (fast)' },
+        { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+      ],
+      nvidia: [
+        { value: 'nvidia/llama-3.1-nemotron-nano-8b-v1', label: 'Nemotron Nano 8B' },
+        { value: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Nemotron 70B' },
+        { value: 'meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B' },
+        { value: 'meta/llama-3.1-70b-instruct', label: 'Llama 3.1 70B' },
+      ],
+      openrouter: [
+        { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+        { value: 'google/gemma-2-9b-it', label: 'Gemma 2 9B' },
+        { value: 'mistralai/mixtral-8x7b-instruct', label: 'Mixtral 8x7B' },
+        { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+        { value: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
+      ],
+      openai: [
+        { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+        { value: 'gpt-4o', label: 'GPT-4o' },
+        { value: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
+      ],
+    };
+
+    var providerEndpoints = {
+      groq: 'https://api.groq.com/openai/v1/chat/completions',
+      nvidia: 'https://integrate.api.nvidia.com/v1/chat/completions',
+      openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+      openai: 'https://api.openai.com/v1/chat/completions',
+    };
+
+    var aiProvider = document.getElementById('aiProvider');
+    var aiModel = document.getElementById('aiModel');
+    var aiApiKey = document.getElementById('aiApiKey');
+
+    // Restore saved BYOK settings
+    var BYOK_KEY = 'detroitdev_byok';
+    try {
+      var saved = JSON.parse(localStorage.getItem(BYOK_KEY)) || {};
+      if (saved.provider) aiProvider.value = saved.provider;
+      if (saved.model) aiModel.dataset.savedModel = saved.model;
+      if (saved.key) aiApiKey.value = saved.key;
+    } catch(e) {}
+
+    function updateModelList() {
+      var p = aiProvider.value;
+      var models = modelCatalogs[p] || modelCatalogs.server;
+      aiModel.innerHTML = '';
+      models.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.label;
+        aiModel.appendChild(opt);
+      });
+      // Restore saved model if it matches
+      if (aiModel.dataset.savedModel) {
+        aiModel.value = aiModel.dataset.savedModel;
+      }
+      saveByok();
+    }
+    aiProvider.addEventListener('change', updateModelList);
+    aiModel.addEventListener('change', saveByok);
+    aiApiKey.addEventListener('change', saveByok);
+
+    function saveByok() {
+      try {
+        localStorage.setItem(BYOK_KEY, JSON.stringify({
+          provider: aiProvider.value,
+          model: aiModel.value,
+          key: aiApiKey.value
+        }));
+      } catch(e) {}
+    }
+
+    updateModelList();
+
+    // Toggle panel
+    function openPanel() {
+      aiPanel.classList.add('open');
+      document.body.classList.add('ai-open');
+      aiInput.focus();
+    }
+    function closePanel() {
+      aiPanel.classList.remove('open');
+      document.body.classList.remove('ai-open');
+    }
+    aiToggle.addEventListener('click', function() {
+      aiPanel.classList.contains('open') ? closePanel() : openPanel();
+    });
+    aiClose.addEventListener('click', closePanel);
+    aiClear.addEventListener('click', function() {
+      chatHistory = [];
+      selections = [];
+      aiMessages.innerHTML = '<div class="ai-msg assistant">Chat cleared. Select text or ask a question.</div>';
+      updateChips();
+      // remove all highlights
+      articleBody.querySelectorAll('.ai-highlight').forEach(function(el) {
+        var parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+      });
+    });
+
+    // Show "Ask AI" tooltip on text selection within article
+    var tooltipTimeout;
+    document.addEventListener('mouseup', function(e) {
+      clearTimeout(tooltipTimeout);
+      var sel = window.getSelection();
+      var text = sel.toString().trim();
+      if (!text || text.length < 2) {
+        askTooltip.style.display = 'none';
+        return;
+      }
+      // Only for selections within the article body
+      if (!articleBody.contains(sel.anchorNode)) {
+        askTooltip.style.display = 'none';
+        return;
+      }
+      var range = sel.getRangeAt(0);
+      var rect = range.getBoundingClientRect();
+      askTooltip.style.left = (rect.left + rect.width / 2 - 35 + window.scrollX) + 'px';
+      askTooltip.style.top = (rect.top - 38 + window.scrollY) + 'px';
+      askTooltip.style.display = 'block';
+      askTooltip._selectedText = text;
+      askTooltip._range = range.cloneRange();
+    });
+
+    askTooltip.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var text = askTooltip._selectedText;
+      var range = askTooltip._range;
+      if (!text) return;
+
+      // Highlight the selected text
+      try {
+        var span = document.createElement('span');
+        span.className = 'ai-highlight';
+        span.dataset.selId = ++highlightCounter;
+        span.title = 'Click to remove';
+        range.surroundContents(span);
+        span.addEventListener('click', function() {
+          removeSelection(span.dataset.selId);
+        });
+      } catch(err) {
+        // surroundContents can fail on cross-element selections
+      }
+
+      selections.push({ id: highlightCounter, text: text });
+      updateChips();
+      askTooltip.style.display = 'none';
+      window.getSelection().removeAllRanges();
+      openPanel();
+
+      // Auto-ask about the selected text
+      sendMessage('Explain this: "' + text + '"');
+    });
+
+    function removeSelection(id) {
+      selections = selections.filter(function(s) { return String(s.id) !== String(id); });
+      var el = articleBody.querySelector('.ai-highlight[data-sel-id="' + id + '"]');
+      if (el) {
+        var parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+      }
+      updateChips();
+    }
+
+    function updateChips() {
+      if (selections.length === 0) {
+        aiSelections.style.display = 'none';
+        return;
+      }
+      aiSelections.style.display = 'block';
+      aiSelChips.innerHTML = '';
+      selections.forEach(function(s) {
+        var chip = document.createElement('span');
+        chip.className = 'ai-sel-chip';
+        chip.textContent = s.text.length > 40 ? s.text.slice(0, 40) + '…' : s.text;
+        chip.title = 'Click to remove';
+        chip.addEventListener('click', function() { removeSelection(s.id); });
+        aiSelChips.appendChild(chip);
+      });
+    }
+
+    // Chat
+    function addMessage(role, html) {
+      var div = document.createElement('div');
+      div.className = 'ai-msg ' + role;
+      div.innerHTML = html;
+      aiMessages.appendChild(div);
+      aiMessages.scrollTop = aiMessages.scrollHeight;
+      return div;
+    }
+
+    function sendMessage(userText) {
+      if (sending || !userText.trim()) return;
+      sending = true;
+      aiSend.disabled = true;
+
+      addMessage('user', escapeHtml(userText));
+      chatHistory.push({ role: 'user', content: userText });
+
+      var thinkingDiv = addMessage('assistant', '<span class="thinking">Thinking…</span>');
+
+      // Gather selected text context
+      var selContext = selections.map(function(s) { return s.text; }).join('\n');
+
+      var provider = aiProvider.value;
+      var model = aiModel.value;
+      var userKey = aiApiKey.value.trim();
+
+      // BYOK: direct-to-provider call from browser
+      if (userKey && provider !== 'server') {
+        var endpoint = providerEndpoints[provider];
+        var messages = [
+          { role: 'system', content: 'You are a helpful assistant discussing the article "' + document.querySelector('.article-meta h1').textContent + '". Selected text context: ' + selContext },
+        ].concat(chatHistory.slice(-20));
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + userKey,
+          },
+          body: JSON.stringify({ model: model || undefined, messages: messages, max_tokens: 1024 })
+        })
+        .then(function(r) {
+          if (!r.ok) return r.json().then(function(e) { throw new Error(e.error?.message || 'Provider error: ' + r.status); });
+          return r.json();
+        })
+        .then(function(data) {
+          var reply = data.choices[0].message.content;
+          var usedModel = data.model || model;
+          var modelTag = usedModel ? ' <span style="opacity:0.4;font-size:11px">(' + escapeHtml(usedModel) + ')</span>' : '';
+          thinkingDiv.innerHTML = formatResponse(reply) + modelTag;
+          chatHistory.push({ role: 'assistant', content: reply });
+        })
+        .catch(function(err) {
+          thinkingDiv.className = 'ai-msg error';
+          thinkingDiv.innerHTML = 'BYOK error: ' + escapeHtml(err.message);
+        })
+        .finally(function() { sending = false; aiSend.disabled = false; });
+        return;
+      }
+
+      // Server-proxied call
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userText,
+          history: chatHistory.slice(-20),
+          selections: selContext,
+          article_title: document.querySelector('.article-meta h1').textContent,
+          provider: provider !== 'server' ? provider : undefined,
+          model: model || undefined,
+        })
+      })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Server error: ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        var modelTag = data.model ? ' <span style="opacity:0.4;font-size:11px">(' + escapeHtml(data.model) + ')</span>' : '';
+        thinkingDiv.innerHTML = formatResponse(data.reply) + modelTag;
+        chatHistory.push({ role: 'assistant', content: data.reply });
+      })
+      .catch(function(err) {
+        thinkingDiv.className = 'ai-msg error';
+        thinkingDiv.innerHTML = err.message.indexOf('Failed to fetch') !== -1 || err.message.indexOf('NetworkError') !== -1
+          ? 'AI not reachable. Open <strong>Model &amp; Settings</strong> above and paste your own API key (Groq is free), or run Ollama locally: <code>ollama pull nemotron-mini && python tools/serve.py</code>'
+          : 'Error: ' + escapeHtml(err.message) + '. Try adding your own API key in <strong>Model &amp; Settings</strong> above (Groq/NVIDIA have free tiers).';
+      })
+      .finally(function() {
+        sending = false;
+        aiSend.disabled = false;
+      });
+    }
+
+    aiSend.addEventListener('click', function() {
+      var text = aiInput.value.trim();
+      if (!text) return;
+      aiInput.value = '';
+      sendMessage(text);
+    });
+    aiInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        aiSend.click();
+      }
+    });
+
+    function escapeHtml(s) {
+      var d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function formatResponse(text) {
+      // Basic formatting: code blocks, bold, newlines
+      return text
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    // Keyboard shortcut: Ctrl+/ to toggle panel
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        aiPanel.classList.contains('open') ? closePanel() : openPanel();
+      }
+    });
+
+    // Hide tooltip on scroll
+    document.addEventListener('scroll', function() {
+      askTooltip.style.display = 'none';
+    }, true);
+  })();
+  </script>
+</body>
+</html>

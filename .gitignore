@@ -1,0 +1,11 @@
+site/
+!site/.gitkeep
+__pycache__/
+*.pyc
+.env
+.env.local
+.env*.local
+*.egg-info/
+dist/
+build/
+.venv/
