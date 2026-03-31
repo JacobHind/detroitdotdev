@@ -1,7 +1,7 @@
 ---
 name: "Jacob Hindman"
 role: "Member"
-github: "jhind"
+github: "JacobHind"
 date: 2026-03-31
 tags: [member]
 title: "Jacob Hindman"
