@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
-"""detroit.dev Discord bot — search and chat with the corpus from Discord.
+"""detroit.dev Discord bot — search, chat, and auto-capture knowledge from Discord.
 
 Commands:
   /ask [question]    — RAG-powered Q&A against the corpus
   /search [query]    — semantic search, returns top results
   /capture [title]   — save recent messages as a corpus note (creates a GitHub PR)
   /notes             — list recent corpus additions
+  /digest            — manually trigger a digest of the current channel
+
+Passive:
+  Auto-digest: watches configured channels and, when conversation goes quiet,
+  asks an LLM whether the discussion was knowledge-worthy. If yes, summarizes
+  it into a clean corpus note and opens a GitHub PR.
 """
 
+import asyncio
 import base64
+import json
 import os
 import re
 import sys
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,6 +39,14 @@ DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "JacobHind/detroitdotdev")
 NOTIFY_CHANNEL = os.environ.get("NOTIFICATION_CHANNEL_ID", "")
+
+# Auto-digest settings
+# Comma-separated channel IDs to watch, or "all" to watch every channel
+WATCH_CHANNELS = os.environ.get("WATCH_CHANNELS", "")
+# Minutes of quiet before evaluating a conversation (default: 10)
+DIGEST_QUIET_MINUTES = int(os.environ.get("DIGEST_QUIET_MINUTES", "10"))
+# Minimum messages in a burst before it's worth evaluating (default: 8)
+DIGEST_MIN_MESSAGES = int(os.environ.get("DIGEST_MIN_MESSAGES", "8"))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -198,7 +215,209 @@ def ask_corpus(question: str) -> str:
         return f"LLM error: {e}"
 
 
+# ── Auto-digest engine ──────────────────────────────────────────
+
+# Per-channel message buffers: channel_id → list of (author, content, timestamp)
+_channel_buffers: dict[int, list[tuple[str, str, datetime]]] = defaultdict(list)
+# Pending digest timers: channel_id → asyncio.Task
+_digest_timers: dict[int, asyncio.Task] = {}
+
+
+def _is_watched(channel_id: int) -> bool:
+    """Check if a channel should be monitored for auto-digest."""
+    if not WATCH_CHANNELS:
+        return False
+    if WATCH_CHANNELS.strip().lower() == "all":
+        return True
+    watched_ids = {int(x.strip()) for x in WATCH_CHANNELS.split(",") if x.strip().isdigit()}
+    return channel_id in watched_ids
+
+
+def _evaluate_conversation(messages: list[tuple[str, str, datetime]]) -> dict | None:
+    """Ask the LLM if a conversation is knowledge-worthy and summarize it.
+
+    Returns {"worthy": True, "title": "...", "summary": "...", "tags": [...]}
+    or None if not worth capturing.
+    """
+    transcript = []
+    for author, content, ts in messages:
+        transcript.append(f"{author} ({ts.strftime('%H:%M')}): {content}")
+    transcript_text = "\n".join(transcript)
+
+    prompt = (
+        "You are a knowledge curator for a developer community (detroit.dev). "
+        "Below is a Discord conversation. Your job:\n\n"
+        "1. Decide if this conversation contains USEFUL KNOWLEDGE worth preserving — "
+        "technical explanations, problem-solving, how-tos, interesting insights, "
+        "research discussion, or shared learnings. Casual chat, greetings, memes, "
+        "scheduling, and off-topic banter are NOT worth preserving.\n\n"
+        "2. If worthy, produce a clean, well-structured summary note in markdown. "
+        "Don't just paste the chat — synthesize it into a proper article that "
+        "someone could learn from without seeing the original conversation. "
+        "Include key points, code snippets (if any), and conclusions.\n\n"
+        "3. Pick a descriptive title and 2-5 relevant tags.\n\n"
+        "Respond with ONLY valid JSON, no markdown fences:\n"
+        '{"worthy": true/false, "title": "...", "tags": ["...", "..."], "summary": "..."}\n\n'
+        "If not worthy, just return: {\"worthy\": false}\n\n"
+        f"=== CONVERSATION ({len(messages)} messages) ===\n"
+        f"{transcript_text}\n"
+        "=== END ==="
+    )
+
+    try:
+        llm, model = get_llm_client()
+        resp = llm.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000,
+        )
+        raw = resp.choices[0].message.content.strip()
+        # Strip markdown fences if the LLM wraps them anyway
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+        result = json.loads(raw)
+        if result.get("worthy") and result.get("summary") and result.get("title"):
+            return result
+    except (json.JSONDecodeError, KeyError, Exception) as e:
+        print(f"[digest] LLM evaluation failed: {e}")
+    return None
+
+
+def _format_digest_note(result: dict, channel_name: str, messages: list) -> str:
+    """Format the LLM summary as a proper corpus markdown note."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    authors = sorted(set(author for author, _, _ in messages))
+    tags = result.get("tags", ["discord", "discussion"])
+    # Ensure discord tag is present
+    if "discord" not in tags:
+        tags.append("discord")
+
+    tag_str = ", ".join(tags)
+
+    lines = [
+        "---",
+        f'title: "{result["title"]}"',
+        f'author: "{", ".join(authors)}"',
+        f"date: {today}",
+        f"tags: [{tag_str}]",
+        f'source: "Discord #{channel_name} (auto-digest)"',
+        "---",
+        "",
+        result["summary"],
+    ]
+    return "\n".join(lines)
+
+
+async def _run_digest(channel_id: int, channel_name: str):
+    """Evaluate and potentially capture a channel's buffered conversation."""
+    messages = list(_channel_buffers.pop(channel_id, []))
+    _digest_timers.pop(channel_id, None)
+
+    if len(messages) < DIGEST_MIN_MESSAGES:
+        return
+
+    print(f"[digest] Evaluating {len(messages)} messages from #{channel_name}...")
+
+    result = _evaluate_conversation(messages)
+
+    if result is None:
+        print(f"[digest] #{channel_name}: not knowledge-worthy, skipping.")
+        return
+
+    print(f"[digest] #{channel_name}: knowledge found — \"{result['title']}\"")
+
+    md = _format_digest_note(result, channel_name, messages)
+    slug = slugify(result["title"])
+
+    if GITHUB_TOKEN:
+        pr_url = await create_github_pr(result["title"], md, slug)
+        if pr_url:
+            print(f"[digest] PR created: {pr_url}")
+            # Notify the channel
+            channel = client.get_channel(channel_id)
+            if channel:
+                await channel.send(
+                    f"📝 I captured a knowledge note from your recent conversation:\n"
+                    f"**{result['title']}**\n"
+                    f"PR: {pr_url}"
+                )
+        else:
+            print(f"[digest] Failed to create PR for \"{result['title']}\"")
+    else:
+        print(f"[digest] No GITHUB_TOKEN — note not saved. Title: \"{result['title']}\"")
+
+
+def _schedule_digest(channel_id: int, channel_name: str):
+    """Schedule a digest evaluation after the quiet period."""
+    # Cancel any existing timer for this channel
+    existing = _digest_timers.get(channel_id)
+    if existing and not existing.done():
+        existing.cancel()
+
+    async def _timer():
+        await asyncio.sleep(DIGEST_QUIET_MINUTES * 60)
+        await _run_digest(channel_id, channel_name)
+
+    _digest_timers[channel_id] = asyncio.ensure_future(_timer())
+
+
 # ── Slash Commands ──────────────────────────────────────────────
+
+
+@tree.command(name="digest", description="Summarize recent conversation into a corpus note")
+@app_commands.describe(
+    count="Number of messages to evaluate (default: 50, max: 200)",
+)
+async def digest_command(interaction: discord.Interaction, count: int = 50):
+    """Manually trigger a digest: evaluate recent messages and create a note if worthy."""
+    await interaction.response.defer(thinking=True)
+
+    count = min(count, 200)
+    messages = []
+    async for msg in interaction.channel.history(limit=count):
+        if not msg.author.bot and msg.content.strip():
+            messages.append((msg.author.display_name, msg.content, msg.created_at))
+    messages.reverse()
+
+    if len(messages) < 3:
+        await interaction.followup.send("Not enough messages to evaluate.")
+        return
+
+    result = _evaluate_conversation(messages)
+
+    if result is None:
+        await interaction.followup.send(
+            "I reviewed the recent conversation but didn't find knowledge worth capturing. "
+            "Try `/capture` for a raw transcript instead."
+        )
+        return
+
+    md = _format_digest_note(result, interaction.channel.name, messages)
+    slug = slugify(result["title"])
+
+    pr_url = await create_github_pr(result["title"], md, slug)
+
+    if pr_url:
+        tags = ", ".join(result.get("tags", []))
+        await interaction.followup.send(
+            f"📝 **{result['title']}**\n"
+            f"Tags: {tags}\n"
+            f"PR: {pr_url}\n\n"
+            f"The bot summarized {len(messages)} messages into a clean knowledge note. "
+            f"Review and merge to add to the corpus."
+        )
+    elif GITHUB_TOKEN:
+        await interaction.followup.send(
+            f"Found knowledge worth capturing (\"{result['title']}\") but failed to create PR. "
+            f"Check the bot's GitHub token."
+        )
+    else:
+        preview = md[:1500] + ("\n..." if len(md) > 1500 else "")
+        await interaction.followup.send(
+            f"📝 **{result['title']}** (preview — set GITHUB_TOKEN to auto-create PRs)\n"
+            f"```md\n{preview}\n```"
+        )
 
 
 @tree.command(name="ask", description="Ask a question answered from the corpus")
@@ -335,9 +554,35 @@ async def notes_command(interaction: discord.Interaction):
 
 
 @client.event
+async def on_message(message: discord.Message):
+    """Buffer messages from watched channels for auto-digest."""
+    # Ignore bots, DMs, empty messages
+    if message.author.bot or not message.guild or not message.content.strip():
+        return
+
+    channel_id = message.channel.id
+
+    if not _is_watched(channel_id):
+        return
+
+    _channel_buffers[channel_id].append(
+        (message.author.display_name, message.content, message.created_at)
+    )
+
+    # Reset the quiet timer — digest fires only after conversation stops
+    _schedule_digest(channel_id, message.channel.name)
+
+
+@client.event
 async def on_ready():
     await tree.sync()
-    print(f"detroit.dev bot online as {client.user} — {len(tree.get_commands())} commands synced")
+    watch_status = WATCH_CHANNELS or "none (set WATCH_CHANNELS to enable auto-digest)"
+    print(
+        f"detroit.dev bot online as {client.user}\n"
+        f"  Commands: {len(tree.get_commands())} synced\n"
+        f"  Auto-digest: watching {watch_status}\n"
+        f"  Quiet period: {DIGEST_QUIET_MINUTES} min, min messages: {DIGEST_MIN_MESSAGES}"
+    )
 
 
 if __name__ == "__main__":
