@@ -1,15 +1,15 @@
 # detroit.dev corpus
 
-A shared knowledge base for the [detroit.dev](https://detroit.dev) community. Clone the repo, add notes, and chat with the entire corpus using local AI tooling.
+A shared knowledge base for the [detroit.dev](https://detroit.dev) community. Clone the repo, add notes, and chat with the entire corpus using local AI — no API keys required.
 
 ## What is this?
 
 A collection of community-contributed markdown files — meeting notes, podcast transcriptions, research summaries, tutorials, and anything else worth sharing. The tooling lets you:
 
-- **Search** across the full corpus
-- **Chat** with the corpus using a local LLM (via Ollama or OpenAI-compatible API)
-- **Transcribe** podcasts/videos and auto-generate Q&A study notes
-- **Publish** polished, web-readable articles from markdown
+- **Semantic Search** — Find meaning, not just keywords. "How do we keep fuel available?" finds tritium-breeding content even if you don't use the word "tritium."
+- **RAG Chat** — Ask questions and get AI-synthesized answers from the most relevant 5 chunks (not the entire corpus)
+- **Local Transcription** — Convert podcasts/videos to markdown + auto-generate Q&A study notes using `faster-whisper` (no API key)
+- **Static Publishing** — Render polished, web-readable articles with customizable fonts, themes, and reader controls
 
 ## Quick start
 
@@ -18,21 +18,54 @@ A collection of community-contributed markdown files — meeting notes, podcast 
 git clone https://github.com/detroitdotdev/corpus.git
 cd corpus
 
-# Install Python dependencies
+# Install Python dependencies (includes numpy, faster-whisper)
 pip install -r requirements.txt
 
-# Search the corpus
-python tools/search.py "transformer circuits"
+# Build the semantic search index (run once, then whenever you add docs)
+python tools/ingest.py
 
-# Chat with the corpus (requires Ollama or OPENAI_API_KEY)
-python tools/chat.py
+# Search the corpus semantically
+python tools/search.py "how do reactors breed fuel"
 
-# Transcribe a podcast and generate Q&A
-python tools/transcribe.py https://example.com/podcast.mp3
+# Chat with the corpus (uses local Ollama by default; set OPENAI_API_KEY for OpenAI)
+python tools/serve.py
+# Then open http://localhost:8888 and use the AI chat sidebar
+
+# Transcribe a podcast (uses faster-whisper locally, no API key)
+python tools/transcribe.py https://example.com/podcast.mp3 --qa
 
 # Build the static site
 python tools/build_site.py
 # Then open site/index.html
+```
+
+## How it works
+
+### Semantic Search
+The corpus is chunked into semantic pieces (~72 chunks from 8 docs), embedded using `nomic-embed-text` (local Ollama), and stored in a JSON index. Queries are embedded the same way, and results are ranked by cosine similarity — finding meaning rather than keywords.
+
+```bash
+python tools/search.py "query"                  # Semantic search (default)
+python tools/search.py "query" --fulltext      # Fallback to keyword search
+```
+
+### RAG Chat
+When you ask a question, the system:
+1. Retrieves the 5 most relevant chunks from the semantic index
+2. Passes only those chunks (+ history) to the LLM
+3. LLM synthesizes an answer grounded in "the corpus"
+
+This scales from 8 docs → 4000 docs without changing infrastructure.
+
+### Local Transcription
+Uses `faster-whisper` (4x faster than OpenAI's Whisper, runs on CPU). Model sizes:
+- `tiny` (75M params) — ~20 sec for 10 min audio, lower quality
+- `small` (244M params) — ~1-2 min for 10 min audio, good for most content
+- `medium` (769M params) — ~4-5 min for 10 min audio, near-perfect
+
+```bash
+python tools/transcribe.py recording.mp3 --whisper-model small
+python tools/transcribe.py recording.mp3 --qa --whisper-model medium  # with Q&A
 ```
 
 ## Project structure
@@ -45,26 +78,42 @@ corpus/                  # Community-contributed markdown notes
     systems/
     detroit/
     misc/
-  transcripts/           # Podcast/video transcriptions
-  generated/             # AI-generated Q&A and summaries
+  transcripts/           # Podcast/video transcriptions (auto-generated)
+  generated/             # AI-generated Q&A and embeddings.json index
 
 tools/                   # Scripts for working with the corpus
-  search.py              # Full-text + semantic search
-  chat.py                # Chat with the corpus via RAG
+  common.py              # Shared utilities (embedding, chunking, RAG retrieval)
+  search.py              # Semantic + full-text search
+  chat.py                # Chat client (deprecated; use serve.py instead)
+  serve.py               # Dev server with RAG chat at /api/chat
   transcribe.py          # Audio/video → transcript → Q&A
   build_site.py          # Render markdown → .pub-style HTML
-  ingest.py              # Build/update the search index
+  ingest.py              # Chunk docs and compute embeddings
 
 templates/               # HTML templates for .pub-style rendering
 site/                    # Generated static site (gitignored)
+api/chat.py              # Vercel serverless handler (same RAG logic as serve.py)
 ```
+
+## Infrastructure
+
+| Component | Local? | Cost |
+|---|---|---|
+| Embeddings (nomic-embed-text) | ✅ Ollama | Free |
+| Search index | ✅ JSON + numpy | Free |
+| LLM chat | ✅ Ollama, or bring your own | Free or BYOK |
+| Transcription (faster-whisper) | ✅ CPU/GPU | Free |
+| Hosting | ✅ Static site or Vercel | Free or cheap |
+
+**Zero mandatory API keys.** All tools work with Ollama (local). Optionally bring your own keys to OpenAI/NVIDIA/Groq/etc.
 
 ## Contributing notes
 
 1. Fork the repo (or push to a branch if you're an org member)
 2. Add a `.md` file under `corpus/topics/<category>/` or `corpus/transcripts/`
 3. Use the frontmatter template below
-4. Open a PR — the build check will run automatically
+4. Run `python tools/ingest.py` to re-index
+5. Open a PR — the build check will run automatically
 
 ### Frontmatter template
 
