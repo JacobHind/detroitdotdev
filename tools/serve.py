@@ -20,7 +20,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import iter_corpus_files, corpus_relative
+from common import iter_corpus_files, corpus_relative, retrieve_context
 
 try:
     from openai import OpenAI
@@ -30,30 +30,6 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE_DIR = ROOT / "site"
-
-# Lazy-loaded corpus context
-_corpus_context = None
-
-
-def get_corpus_context(max_chars: int = 100_000) -> str:
-    global _corpus_context
-    if _corpus_context is None:
-        chunks = []
-        total = 0
-        for path, fm, body in iter_corpus_files():
-            rel = corpus_relative(path)
-            title = fm.get("title", path.stem)
-            header = f"\n{'=' * 40}\nFile: {rel}\nTitle: {title}\n{'=' * 40}\n"
-            chunk = header + body
-            if total + len(chunk) > max_chars:
-                remaining = max_chars - total
-                if remaining > 200:
-                    chunks.append(chunk[:remaining] + "\n...(truncated)")
-                break
-            chunks.append(chunk)
-            total += len(chunk)
-        _corpus_context = "\n".join(chunks)
-    return _corpus_context
 
 
 def get_client_and_model(model_override: str | None = None):
@@ -98,15 +74,16 @@ class DevHandler(SimpleHTTPRequestHandler):
         article_title = body.get("article_title", "")
         history = body.get("history", [])
 
-        # Build system prompt with corpus context
-        corpus = get_corpus_context()
+        # Build system prompt with relevant context (RAG)
+        corpus = retrieve_context(user_msg)
         system = (
             "You are an AI assistant for detroit.dev, a community knowledge base. "
-            "You have the full corpus of community notes as context below. "
-            "Answer questions clearly and concisely based on the corpus content. "
+            "You have relevant excerpts from the corpus as context below. "
+            "Answer questions clearly and concisely based on the provided context. "
             "When explaining technical concepts, use analogies and examples. "
-            "If the user has selected specific text from an article, focus your explanation on that.\n\n"
-            f"=== CORPUS ===\n{corpus}\n=== END CORPUS ==="
+            "If the user has selected specific text from an article, focus your explanation on that. "
+            "If the context doesn't contain enough information, say so.\n\n"
+            f"=== RELEVANT CONTEXT ===\n{corpus}\n=== END CONTEXT ==="
         )
 
         # Build messages

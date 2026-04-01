@@ -1,7 +1,12 @@
 import json
 import os
+import sys
 import glob
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler
+
+# Add tools/ to path so we can import common
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 # Try openai, fall back gracefully
 try:
@@ -9,8 +14,14 @@ try:
 except ImportError:
     OpenAI = None
 
-# ── Corpus loading ──────────────────────────────────────────────
-# Reads markdown files from corpus/ at cold-start (cached across invocations)
+# Try to import RAG retrieval from common
+try:
+    from common import retrieve_context
+    _has_rag = True
+except ImportError:
+    _has_rag = False
+
+# ── Corpus loading (fallback when RAG not available) ────────────
 _corpus_cache = None
 
 
@@ -163,15 +174,19 @@ class handler(BaseHTTPRequestHandler):
         article_title = body.get("article_title", "")
         history = body.get("history", [])
 
-        # System prompt with corpus
-        corpus = load_corpus()
+        # System prompt with relevant context (RAG or fallback)
+        if _has_rag:
+            corpus = retrieve_context(user_msg)
+        else:
+            corpus = load_corpus()
         system = (
             "You are an AI assistant for detroit.dev, a community knowledge base. "
-            "You have the full corpus of community notes as context below. "
+            "You have relevant excerpts from the corpus as context below. "
             "Answer questions clearly and concisely. "
             "Use analogies and examples for technical concepts. "
-            "If the user selected text from an article, focus on that.\n\n"
-            f"=== CORPUS ===\n{corpus}\n=== END CORPUS ==="
+            "If the user selected text from an article, focus on that. "
+            "If the context doesn't contain enough information, say so.\n\n"
+            f"=== RELEVANT CONTEXT ===\n{corpus}\n=== END CONTEXT ==="
         )
 
         messages = [{"role": "system", "content": system}]

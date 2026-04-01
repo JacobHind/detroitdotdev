@@ -5,3 +5,5 @@ markdown
 jinja2
 pygments
 beautifulsoup4
+numpy
+faster-whisper

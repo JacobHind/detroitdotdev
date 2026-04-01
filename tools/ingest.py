@@ -1,28 +1,52 @@
 #!/usr/bin/env python3
-"""Build a search index for semantic search (future use).
+"""Build the semantic search index: chunk documents and compute embeddings.
 
 Usage:
-    python tools/ingest.py
+    python tools/ingest.py              # build full index
+    python tools/ingest.py --dry-run    # show chunks without embedding
 """
 
-from common import iter_corpus_files, corpus_relative
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import iter_corpus_files, corpus_relative, chunk_document, embed_texts, save_index
 
 
 def main():
-    print("Indexing corpus files...\n")
-    count = 0
+    parser = argparse.ArgumentParser(description="Build the semantic search index")
+    parser.add_argument("--dry-run", action="store_true", help="Show chunks without computing embeddings")
+    args = parser.parse_args()
+
+    print("Chunking corpus files...\n")
+    all_chunks = []
     for path, fm, body in iter_corpus_files():
         rel = corpus_relative(path)
-        title = fm.get("title", path.stem)
-        tags = fm.get("tags", [])
-        word_count = len(body.split())
-        print(f"  {rel}")
-        print(f"    title: {title} | tags: {', '.join(tags)} | {word_count} words")
-        count += 1
+        chunks = chunk_document(path, fm, body)
+        print(f"  {rel}: {len(chunks)} chunk(s)")
+        all_chunks.extend(chunks)
 
-    print(f"\n{count} file(s) indexed.")
-    print("\nNote: Semantic search with embeddings is not yet implemented.")
-    print("For now, use `python tools/search.py` for full-text search.")
+    print(f"\n{len(all_chunks)} total chunk(s) from corpus.\n")
+
+    if args.dry_run:
+        for i, c in enumerate(all_chunks):
+            words = len(c["text"].split())
+            print(f"  [{i}] {c['source']} > {c['section']} ({words} words)")
+        print("\nDry run complete. No embeddings computed.")
+        return
+
+    if not all_chunks:
+        print("No chunks to embed.")
+        return
+
+    print("Computing embeddings...")
+    texts = [f"{c['title']} - {c['section']}\n{c['text']}" for c in all_chunks]
+    embeddings = embed_texts(texts)
+    print(f"  Got {len(embeddings)} embedding(s), dim={len(embeddings[0])}")
+
+    save_index(all_chunks, embeddings)
+    print(f"\nIndex saved. Run `python tools/search.py \"your query\"` to search.")
 
 
 if __name__ == "__main__":

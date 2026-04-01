@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Transcribe audio/video and optionally generate Q&A study notes.
 
-Uses OpenAI Whisper API by default. Set OPENAI_API_KEY.
+Uses faster-whisper locally (no API key needed).
+Falls back to OpenAI Whisper API if OPENAI_API_KEY is set and --api flag is used.
 
 Usage:
     python tools/transcribe.py recording.mp3
     python tools/transcribe.py recording.mp3 --qa
     python tools/transcribe.py https://example.com/podcast.mp3 --qa
+    python tools/transcribe.py recording.mp3 --whisper-model medium
+    python tools/transcribe.py recording.mp3 --api   # use OpenAI API instead
 """
 
 import argparse
@@ -16,12 +19,6 @@ import sys
 import tempfile
 from datetime import date
 from pathlib import Path
-
-try:
-    from openai import OpenAI
-except ImportError:
-    print("Install dependencies: pip install -r requirements.txt")
-    sys.exit(1)
 
 CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 
@@ -33,7 +30,6 @@ def download_if_url(source: str) -> Path:
         print(f"Downloading {source}...")
         with httpx.stream("GET", source, follow_redirects=True) as r:
             r.raise_for_status()
-            # Determine extension from URL or content-type
             ext = Path(source.split("?")[0]).suffix or ".mp3"
             tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
             for chunk in r.iter_bytes(chunk_size=8192):
@@ -44,16 +40,55 @@ def download_if_url(source: str) -> Path:
     return Path(source)
 
 
-def transcribe(audio_path: Path, client: OpenAI) -> str:
-    """Transcribe audio using OpenAI Whisper API."""
+def transcribe_local(audio_path: Path, model_size: str = "small") -> str:
+    """Transcribe audio using faster-whisper (local, no API key)."""
+    from faster_whisper import WhisperModel
+
+    print(f"Loading whisper model ({model_size})...")
+    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+
     print(f"Transcribing {audio_path.name}...")
+    segments, info = model.transcribe(str(audio_path), beam_size=5)
+
+    print(f"Detected language: {info.language} (probability {info.language_probability:.2f})")
+
+    texts = []
+    for segment in segments:
+        texts.append(segment.text.strip())
+
+    return " ".join(texts)
+
+
+def transcribe_api(audio_path: Path) -> str:
+    """Transcribe audio using OpenAI Whisper API (requires OPENAI_API_KEY)."""
+    from openai import OpenAI
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("Error: --api requires OPENAI_API_KEY.")
+        print("Set it: export OPENAI_API_KEY=sk-...")
+        sys.exit(1)
+
+    client = OpenAI(api_key=api_key)
+    print(f"Transcribing {audio_path.name} via OpenAI API...")
     with open(audio_path, "rb") as f:
         result = client.audio.transcriptions.create(model="whisper-1", file=f)
     return result.text
 
 
-def generate_qa(transcript: str, client: OpenAI, model: str = "gpt-4o-mini") -> str:
-    """Generate Q&A study notes from a transcript."""
+def generate_qa(transcript: str, model: str = "gpt-4o-mini") -> str:
+    """Generate Q&A study notes from a transcript using an LLM."""
+    # Try to get any available LLM client
+    from openai import OpenAI
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        client = OpenAI(api_key=api_key)
+    else:
+        # Fallback to Ollama
+        client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+        model = os.environ.get("OLLAMA_MODEL", "nemotron-mini")
+
     print("Generating Q&A...")
     response = client.chat.completions.create(
         model=model,
@@ -118,20 +153,21 @@ def main():
     parser = argparse.ArgumentParser(description="Transcribe audio/video for the corpus")
     parser.add_argument("source", help="Path or URL to audio/video file")
     parser.add_argument("--qa", action="store_true", help="Also generate Q&A study notes")
-    parser.add_argument("--model", default="gpt-4o-mini", help="Model for Q&A generation")
+    parser.add_argument("--api", action="store_true", help="Use OpenAI Whisper API instead of local")
+    parser.add_argument("--whisper-model", default="small",
+                        choices=["tiny", "base", "small", "medium", "large-v3"],
+                        help="Local whisper model size (default: small)")
+    parser.add_argument("--model", default="gpt-4o-mini", help="LLM model for Q&A generation")
     args = parser.parse_args()
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        print("Error: OPENAI_API_KEY required for transcription.")
-        print("Set it: export OPENAI_API_KEY=sk-...")
-        sys.exit(1)
-
-    client = OpenAI(api_key=api_key)
     audio_path = download_if_url(args.source)
 
-    transcript = transcribe(audio_path, client)
-    qa_content = generate_qa(transcript, client, args.model) if args.qa else None
+    if args.api:
+        transcript = transcribe_api(audio_path)
+    else:
+        transcript = transcribe_local(audio_path, args.whisper_model)
+
+    qa_content = generate_qa(transcript, args.model) if args.qa else None
     save_transcript(transcript, args.source, qa_content)
 
 
