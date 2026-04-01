@@ -1,3 +1,5 @@
 discord.py>=2.3
 httpx>=0.25
 python-dotenv>=1.0
+openai>=1.0
+numpy>=1.24

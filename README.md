@@ -1,219 +1,154 @@
-# detroit.dev corpus
+# detroit.dev
 
-A shared knowledge base for the [detroit.dev](https://detroit.dev) community. Clone the repo, add notes, and chat with the entire corpus using local AI — no API keys required.
+**A community knowledge base that remembers everything.**
 
-## What is this?
+detroit.dev is an open, AI-powered knowledge base built and maintained by the [detroit.dev](https://detroit.dev) community. Members contribute markdown notes on any topic — research summaries, meeting notes, podcast transcriptions, tutorials — and the system makes all of it searchable, queryable, and accessible from the web, Discord, or the command line.
 
-A collection of community-contributed markdown files — meeting notes, podcast transcriptions, research summaries, tutorials, and anything else worth sharing. The tooling lets you:
+Ask a question in plain English. Get an answer grounded in what the community actually wrote.
 
-- **Semantic Search** — Find meaning, not just keywords. "How do we keep fuel available?" finds tritium-breeding content even if you don't use the word "tritium."
-- **RAG Chat** — Ask questions and get AI-synthesized answers from the most relevant 5 chunks (not the entire corpus)
-- **Local Transcription** — Convert podcasts/videos to markdown + auto-generate Q&A study notes using `faster-whisper` (no API key)
-- **Static Publishing** — Render polished, web-readable articles with customizable fonts, themes, and reader controls
+---
+
+## Why this exists
+
+Knowledge dies in chat scroll. Good conversations happen in Discord, someone explains something well in a meeting, a podcast covers exactly the right topic — and then it's gone. detroit.dev captures that knowledge into a permanent, searchable, AI-queryable corpus that the whole community can build on.
+
+## What you can do with it
+
+| | |
+|---|---|
+| **Search** | Semantic search across the entire corpus. "How do we keep fuel available?" matches tritium-breeding content — no exact keywords needed. |
+| **Ask** | Chat with the corpus. The AI retrieves the 5 most relevant chunks and synthesizes an answer grounded in community knowledge. |
+| **Capture** | Transcribe podcasts, record meeting notes, save Discord threads — all become searchable corpus entries. |
+| **Read** | Every note renders as a clean, readable article with adjustable fonts, themes, and a table of contents. |
+| **Contribute** | Add a markdown file, open a PR, and your knowledge is part of the shared brain. |
 
 ## Quick start
 
 ```bash
-# Clone the repo
-git clone https://github.com/detroitdotdev/corpus.git
-cd corpus
-
-# Install Python dependencies (includes numpy, faster-whisper)
+git clone https://github.com/JacobHind/detroitdotdev.git
+cd detroitdotdev
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# Build the semantic search index (run once, then whenever you add docs)
+### Build the search index
+
+```bash
+# Requires Ollama running locally (https://ollama.com)
+ollama pull nomic-embed-text
 python tools/ingest.py
+```
 
-# Search the corpus semantically
+### Search and chat
+
+```bash
 python tools/search.py "how do reactors breed fuel"
-
-# Chat with the corpus (uses local Ollama by default; set OPENAI_API_KEY for OpenAI)
-python tools/serve.py
-# Then open http://localhost:8888 and use the AI chat sidebar
-
-# Transcribe a podcast (uses faster-whisper locally, no API key)
-python tools/transcribe.py https://example.com/podcast.mp3 --qa
-
-# Build the static site
-python tools/build_site.py
-# Then open site/index.html
+python tools/serve.py          # opens http://localhost:8888 with AI chat sidebar
 ```
 
-## How it works
-
-### Semantic Search
-The corpus is chunked into semantic pieces (~72 chunks from 8 docs), embedded using `nomic-embed-text` (local Ollama), and stored in a JSON index. Queries are embedded the same way, and results are ranked by cosine similarity — finding meaning rather than keywords.
+### Transcribe audio
 
 ```bash
-python tools/search.py "query"                  # Semantic search (default)
-python tools/search.py "query" --fulltext      # Fallback to keyword search
+python tools/transcribe.py recording.mp3 --qa    # local, no API key needed
 ```
 
-### RAG Chat
-When you ask a question, the system:
-1. Retrieves the 5 most relevant chunks from the semantic index
-2. Passes only those chunks (+ history) to the LLM
-3. LLM synthesizes an answer grounded in "the corpus"
-
-This scales from 8 docs → 4000 docs without changing infrastructure.
-
-### Local Transcription
-Uses `faster-whisper` (4x faster than OpenAI's Whisper, runs on CPU). Model sizes:
-- `tiny` (75M params) — ~20 sec for 10 min audio, lower quality
-- `small` (244M params) — ~1-2 min for 10 min audio, good for most content
-- `medium` (769M params) — ~4-5 min for 10 min audio, near-perfect
+### Build the static site
 
 ```bash
-python tools/transcribe.py recording.mp3 --whisper-model small
-python tools/transcribe.py recording.mp3 --qa --whisper-model medium  # with Q&A
+python tools/build_site.py     # renders corpus → site/
 ```
 
-## Project structure
+## Architecture
 
 ```
-corpus/                  # Community-contributed markdown notes
-  topics/                # Organized by topic
-    ai-ml/
-    web-dev/
-    systems/
-    detroit/
-    misc/
-  transcripts/           # Podcast/video transcriptions (auto-generated)
-  generated/             # AI-generated Q&A and embeddings.json index
+┌─────────────────────────────────────────────────────────────┐
+│                        Interfaces                           │
+│  Web reader (/site)  │  Discord bot (/bot)  │  CLI tools   │
+└──────────┬───────────┴──────────┬───────────┴──────┬───────┘
+           │                      │                  │
+           ▼                      ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     RAG Engine (common.py)                   │
+│  Chunk docs → Embed → Index → Retrieve → LLM answer         │
+└──────────┬──────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Corpus (/corpus)                        │
+│  Markdown files organized by topic, contributed by members   │
+└─────────────────────────────────────────────────────────────┘
+```
 
-tools/                   # Scripts for working with the corpus
-  common.py              # Shared utilities (embedding, chunking, RAG retrieval)
-  search.py              # Semantic + full-text search
-  chat.py                # Chat client (deprecated; use serve.py instead)
-  serve.py               # Dev server with RAG chat at /api/chat
-  transcribe.py          # Audio/video → transcript → Q&A
-  build_site.py          # Render markdown → .pub-style HTML
-  ingest.py              # Chunk docs and compute embeddings
+### How search and chat work
 
-templates/               # HTML templates for .pub-style rendering
-site/                    # Generated static site (gitignored)
-api/chat.py              # Vercel serverless handler (same RAG logic as serve.py)
+1. **Ingest** — `ingest.py` splits every markdown file into semantic chunks (~800 words each, split at headers), embeds them with `nomic-embed-text`, and saves the vectors to a JSON index.
+2. **Search** — `search.py` embeds your query with the same model and ranks chunks by cosine similarity.
+3. **Chat** — `serve.py` / `api/chat.py` / Discord bot retrieve the top 5 chunks for your question, pass them to an LLM as context, and return a grounded answer.
+
+### Project structure
+
+```
+corpus/                  Community-contributed markdown notes
+  topics/                Organized by topic (ai-ml, nuclear-fusion, web-dev, etc.)
+  members/               Community member pages
+  transcripts/           Podcast/video transcriptions
+  generated/             Embedding index (auto-generated, gitignored)
+
+tools/                   The engine
+  common.py              Chunking, embedding, vector search, RAG retrieval
+  ingest.py              Build the semantic search index
+  search.py              CLI semantic search
+  serve.py               Dev server with RAG chat at /api/chat
+  transcribe.py          Audio/video → markdown + Q&A (faster-whisper, local)
+  build_site.py          Render markdown → readable HTML articles
+  chat.py                Standalone chat client
+
+bot/                     Discord bot (see bot/README.md)
+  bot.py                 /ask, /search, /capture, /notes commands
+
+api/chat.py              Vercel serverless endpoint (production)
+templates/               HTML templates for the static site
+site/                    Generated static site output
 ```
 
 ## Infrastructure
 
-| Component | Local? | Cost |
+| Component | How it runs | Cost |
 |---|---|---|
-| Embeddings (nomic-embed-text) | ✅ Ollama | Free |
-| Search index | ✅ JSON + numpy | Free |
-| LLM chat | ✅ Ollama, or bring your own | Free or BYOK |
-| Transcription (faster-whisper) | ✅ CPU/GPU | Free |
-| Hosting | ✅ Static site or Vercel | Free or cheap |
+| Embeddings | nomic-embed-text via Ollama (local) | Free |
+| Vector index | JSON file + numpy cosine similarity | Free |
+| LLM | Ollama (local), or Groq / OpenRouter / OpenAI | Free or BYOK |
+| Transcription | faster-whisper on CPU (local) | Free |
+| Discord bot | Any server / VPS / Railway | Free–$5/mo |
+| Website | Vercel (static + serverless) | Free tier |
 
-**Zero mandatory API keys.** All tools work with Ollama (local). Optionally bring your own keys to OpenAI/NVIDIA/Groq/etc.
+**Zero mandatory API keys.** Everything runs locally with Ollama. Optionally set `GROQ_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY` for cloud LLMs.
 
-## Contributing notes
+## Discord bot
 
-1. Fork the repo (or push to a branch if you're an org member)
-2. Add a `.md` file under `corpus/topics/<category>/` or `corpus/transcripts/`
-3. Use the frontmatter template below
-4. Run `python tools/ingest.py` to re-index
-5. Open a PR — the build check will run automatically
+The bot brings the entire knowledge base into your Discord server:
 
-### Frontmatter template
+| Command | What it does |
+|---|---|
+| `/ask [question]` | RAG-powered Q&A — retrieves relevant chunks, sends to LLM, answers in-channel |
+| `/search [query]` | Semantic search — top 5 results with relevance scores and previews |
+| `/capture [title]` | Save recent channel messages as a corpus note (creates a GitHub PR) |
+| `/notes` | List recent corpus additions |
 
-```yaml
----
-title: "Your Note Title"
-author: "Your Name"
-date: 2026-03-31
-tags: [ai, transformers, interpretability]
-source: ""  # optional: URL, podcast, book, etc.
----
-```
+Setup: see [bot/README.md](bot/README.md).
 
-### Add yourself to the community page
+## Contributing
 
-```bash
-cp corpus/members/_template.md corpus/members/your-name.md
-# Edit the file with your info
-# Submit a PR
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide. The short version:
 
-Write your content in standard markdown. Code blocks, math (LaTeX), images, and links all work.
+1. Add a `.md` file under `corpus/topics/<category>/`
+2. Include frontmatter (title, author, date, tags)
+3. Run `python tools/ingest.py` to re-index
+4. Open a PR
 
-### Guidelines
-
-- **One idea per file** — keep notes focused
-- **Use descriptive filenames** — `transformer-circuits-framework.md` not `notes.md`
-- **Tag generously** — helps search and discovery
-- **Credit sources** — link to original material
-- **No proprietary content** — respect copyrights
-
-## CI/CD & Branch Protection
-
-### Automatic checks (GitHub Actions)
-
-Every PR runs `.github/workflows/build-check.yml`:
-- Installs deps, builds the site, checks for broken internal links
-- PR can't merge if the build fails
-
-On merge to `main`, `.github/workflows/deploy.yml` auto-deploys to Vercel.
-
-### Setting up branch protection
-
-Go to **GitHub → Settings → Branches → Add rule** for `main`:
-
-1. **Require a pull request before merging** ✓
-2. **Require status checks to pass before merging** ✓ → select "Build Check"
-3. **Do not allow bypassing the above settings** ✓ (even admins go through PRs)
-4. **Require approvals**: 1 (recommended for a small team)
-
-### Vercel secrets (one-time setup)
-
-Add these in **GitHub → Settings → Secrets → Actions**:
-- `VERCEL_TOKEN` — from [vercel.com/account/tokens](https://vercel.com/account/tokens)
-- `VERCEL_ORG_ID` — from `.vercel/project.json` after `vercel link`
-- `VERCEL_PROJECT_ID` — same file
-
-### Discord bot
-
-The `bot/` directory contains a Discord bot that can capture discussions and populate the corpus. See `bot/README.md` for setup.
-
-## Tooling details
-
-### Search
-
-Full-text search across all markdown files, with optional semantic search (requires embeddings model).
-
-```bash
-python tools/search.py "induction heads"
-python tools/search.py --semantic "how do transformers learn in-context"
-```
-
-### Chat
-
-RAG-powered chat over the corpus. Uses Ollama by default, or set `OPENAI_API_KEY` / `OPENAI_BASE_URL` for any OpenAI-compatible API.
-
-```bash
-python tools/chat.py                          # interactive mode
-python tools/chat.py -q "summarize the corpus on MLOps"  # single query
-```
-
-### Transcribe
-
-Transcribe audio/video and optionally generate Q&A study notes.
-
-```bash
-python tools/transcribe.py podcast.mp3
-python tools/transcribe.py https://youtube.com/watch?v=... --qa
-```
-
-### Publish
-
-Render markdown files into clean, Distill/Anthropic-style HTML articles.
-
-```bash
-python tools/build_site.py                    # build all
-python tools/build_site.py corpus/topics/ai-ml/my-note.md  # build one
-```
+**Moderators:** CONTRIBUTING.md has a dedicated section on content review, quality standards, and how to manage the corpus.
 
 ## License
 
-Content in `corpus/` is contributed by community members under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
-Tooling in `tools/` is MIT licensed.
+- **Content** (`corpus/`) — [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (share and adapt with attribution)
+- **Code** (`tools/`, `bot/`, `api/`) — [MIT](LICENSE)

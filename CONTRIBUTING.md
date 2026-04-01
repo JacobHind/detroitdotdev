@@ -1,247 +1,269 @@
-# Contributing to detroit.dev corpus
+# Contributing to detroit.dev
 
-Thanks for adding to the shared brain. Here's everything you need to know.
-
-## Quick version
-
-1. Clone the repo
-2. Add a `.md` file in `corpus/topics/<your-topic>/`
-3. Run `python tools/build_site.py` to see it
-4. Push a branch, open a PR
-
-That's it. The rest of this doc covers the details.
+Everything you need to know about adding to the knowledge base — whether you're writing your first note or reviewing PRs as a moderator.
 
 ---
 
-## Setting up your local environment
+## For contributors
+
+### The 5-minute version
+
+1. Clone the repo and set up your environment
+2. Create a `.md` file in the right folder
+3. Add frontmatter (title, author, date, tags)
+4. Open a PR
+
+That's it. A moderator will review and merge.
+
+### Setting up locally
 
 ```bash
-# Clone
-git clone https://github.com/detroitdotdev/corpus.git
-cd corpus
-
-# Create a Python virtual environment
+git clone https://github.com/JacobHind/detroitdotdev.git
+cd detroitdotdev
 python3 -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
-
-# Install dependencies
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Adding a note to the corpus
+### Adding a note
 
-### 1. Pick (or create) a topic folder
-
-Notes live under `corpus/topics/`. Current topics:
+Notes live under `corpus/topics/`. Pick an existing folder or create one:
 
 ```
 corpus/topics/
-  ai-ml/              # AI & machine learning
-  nuclear-fusion/      # Nuclear fusion research
-  web-dev/             # Web development (empty — needs you)
-  systems/             # Systems & infrastructure (empty — needs you)
-  detroit/             # Detroit community stuff (empty — needs you)
+  ai-ml/              AI & machine learning
+  nuclear-fusion/      Nuclear fusion research
+  web-dev/             Web development
+  systems/             Systems & infrastructure
+  detroit/             Detroit community topics
+  NIST/                Standards & frameworks
+  Quantum/             Quantum computing
+  misc/                Everything else
 ```
 
-Don't see your topic? Create a new folder. Use lowercase with dashes: `corpus/topics/robotics/`, `corpus/topics/game-dev/`, etc.
-
-### 2. Create your markdown file
+New topic? Create a folder. Use lowercase with dashes: `corpus/topics/robotics/`, `corpus/topics/game-dev/`.
 
 ```bash
-# Example
-touch corpus/topics/ai-ml/my-awesome-note.md
+# Create your note
+touch corpus/topics/ai-ml/attention-mechanisms-explained.md
 ```
 
 Use a descriptive filename — `attention-mechanisms-explained.md`, not `notes.md`.
 
-### 3. Add frontmatter
+### Frontmatter
 
-Every note starts with YAML frontmatter between `---` markers:
+Every note starts with YAML frontmatter:
 
 ```yaml
 ---
 title: "Your Note Title"
 author: "Your Name"
-date: 2026-03-31
+date: 2026-04-01
 tags: [ai, attention, transformers]
-source: "https://example.com/original-paper"  # optional
+source: "https://arxiv.org/abs/..."
 ---
 ```
 
-- **title** — shows up on the site index
-- **author** — your name or handle
-- **date** — when you wrote it (YYYY-MM-DD)
-- **tags** — list of tags for search/filtering
-- **source** — where the content came from (paper link, podcast URL, book, etc.)
+| Field | Required | Description |
+|---|---|---|
+| `title` | Yes | Displayed on the site index and in search results |
+| `author` | Yes | Your name or handle |
+| `date` | Yes | When you wrote it (YYYY-MM-DD) |
+| `tags` | Yes | List of tags — be generous, these power search and filtering |
+| `source` | No | Where the content came from (paper, podcast, book, URL) |
 
-### 4. Write your content
+### Writing your content
 
-Use standard markdown. Everything works:
+Standard markdown. Everything works:
 
-```markdown
-# Main heading (usually matches title)
+- Headings (`## Section`)
+- Code blocks with syntax highlighting
+- Tables, bullet/numbered lists
+- Math (LaTeX): `$E = mc^2$` inline, `$$` blocks
+- Blockquotes for key quotes from sources
+- Links and images
 
-## Subheading
+### What makes a good note
 
-Regular paragraphs. **Bold**, *italic*, `inline code`.
+- **Explains something in your own words** — don't just paste; process and restate
+- **Has clear structure** — headings break up the content, each section has a point
+- **Links to primary sources** — papers, talks, docs, code
+- **Includes practical details** — commands, parameters, code snippets, real examples
+- **Could teach someone new** — write for the person who'll read this in 6 months
+- **One idea per file** — focused beats comprehensive. Two clear notes > one messy one
 
-- Bullet lists
-- Work fine
+### Transcribing audio/video
 
-| Tables | Also | Work |
-|--------|------|------|
-| Like   | This | Here |
-
-Code blocks with syntax highlighting:
-
-​```python
-def hello():
-    print("detroit.dev")
-​```
-
-Math (LaTeX):
-$$E = mc^2$$
-
-> Blockquotes for key quotes from sources
-
-[Links](https://example.com) are encouraged.
-```
-
-### 5. Build and preview
+Got a podcast episode or talk worth preserving?
 
 ```bash
-# Build the entire site
-python tools/build_site.py
-
-# Serve it locally
-cd site && python3 -m http.server 8080
-# Open http://localhost:8080
+python tools/transcribe.py recording.mp3 --qa --whisper-model small
 ```
 
-Your note should appear on the index page, grouped under its topic.
+This creates a markdown transcript with auto-generated Q&A study notes. Output goes to `corpus/transcripts/`. Review and clean up before submitting.
 
-### 6. Submit a PR
-
-```bash
-git checkout -b my-note-topic
-git add corpus/topics/your-topic/your-note.md
-git commit -m "Add notes on [your topic]"
-git push origin my-note-topic
-# Open a PR on GitHub
-```
-
-The CI build check runs automatically — if the site builds and there are no broken links, you're good to merge.
-
----
-
-## Adding yourself to the community page
+### Adding yourself to the community page
 
 ```bash
-# Copy the template
 cp corpus/members/_template.md corpus/members/your-name.md
 ```
 
-Edit the frontmatter:
+Edit the frontmatter and write whatever you want — bio, interests, projects, hot takes.
 
-```yaml
+### Previewing your changes
+
+```bash
+python tools/build_site.py       # build the static site
+python tools/serve.py            # serve at http://localhost:8888
+
+# Or just rebuild the search index to test your content is indexed
+python tools/ingest.py
+python tools/search.py "your topic"
+```
+
+### Submitting your PR
+
+```bash
+git checkout -b add/your-topic-name
+git add corpus/topics/your-topic/your-note.md
+git commit -m "add: notes on [your topic]"
+git push origin add/your-topic-name
+```
+
+Open a PR on GitHub. CI runs automatically. A moderator will review.
+
 ---
-name: "Your Name"
-role: "Member"        # or whatever you want
-github: "your-username"
-date: 2026-03-31
-tags: [member]
-title: "Your Name"
----
+
+## For moderators
+
+This section is for people reviewing PRs, managing the corpus, and keeping the knowledge base healthy. If you've been given moderator access, this is your playbook.
+
+### Your job
+
+You're a librarian, not a gatekeeper. The goal is to help people get their knowledge into the corpus in a form that's useful to others. Merge fast, fix small issues yourself, and only push back when something genuinely doesn't belong.
+
+### Reviewing content PRs
+
+When someone opens a PR with a new note, check:
+
+**Must-have (block merge if missing):**
+- [ ] Frontmatter is present and valid (title, author, date, tags)
+- [ ] File is in the right folder under `corpus/topics/` or `corpus/transcripts/`
+- [ ] Filename is descriptive (not `notes.md` or `untitled.md`)
+- [ ] Content is original writing or properly attributed summary (not copy-pasted copyrighted material)
+- [ ] No secrets, API keys, or personal information that shouldn't be public
+
+**Nice-to-have (suggest but don't block):**
+- [ ] Tags are relevant and consistent with existing tags in the corpus
+- [ ] Source link is included if the note summarizes external material
+- [ ] Headings create a logical structure
+- [ ] Content is substantial enough to be useful (more than a few sentences)
+
+**Don't worry about:**
+- Grammar, spelling, formatting polish — imperfect knowledge > no knowledge
+- Whether you personally find the topic interesting
+- Whether similar content exists — different perspectives are valuable
+
+### Handling common PR scenarios
+
+**Good note, small issues (typo in frontmatter, wrong folder):**
+Fix it yourself and merge. Leave a friendly comment explaining what you changed.
+
+**Low-effort dump (pasted text wall, no structure, no attribution):**
+Comment with specific feedback: "This would be really useful if you could break it into sections with headings and link to where you found this." Don't close — give them a chance to improve.
+
+**Off-topic or spam:**
+Close with a brief explanation. Be direct but not rude.
+
+**Duplicate of existing content:**
+Check if the new note adds anything. Different angle on the same topic? Merge it. Near-identical? Point to the existing note and suggest they add to it instead.
+
+**Bot-captured Discord threads (`/capture`):**
+These come in as raw conversation transcripts. Review for:
+- Is the conversation actually substantive? Not every chat is worth preserving.
+- Consider editing the title to be descriptive.
+- If it's good, merge as-is — raw discussions have value even without polish.
+
+### Managing the corpus structure
+
+**Creating new topic folders:**
+Anyone can propose them via PR. As a moderator, consider:
+- Is this genuinely a new topic, or does it fit under an existing folder?
+- Use lowercase with dashes: `corpus/topics/hardware-hacking/`
+- Don't create empty folders speculatively — wait until there's content to put in them
+
+**Moving or renaming files:**
+If a note is in the wrong folder or has a bad filename, move it yourself:
+```bash
+git mv corpus/topics/misc/fusion-stuff.md corpus/topics/nuclear-fusion/tritium-handling.md
+```
+Update any internal links, rebuild the index, and note the change in the commit message.
+
+**Archiving outdated content:**
+Don't delete — knowledge has long tails. If something is outdated, add a note at the top:
+```markdown
+> **Note (2026-04-01):** This was written about X v1.0. Much has changed since — see [updated-note.md](updated-note.md) for current information.
 ```
 
-Write whatever you want in the body — bio, interests, projects, links, hot takes. Submit as a PR.
+### Running the tools
 
----
-
-## Using the AI tools
-
-### Chat with the corpus
-
-The whole point: ask questions and get answers grounded in community notes.
-
-**Option A — Local with Ollama (no API key needed):**
-```bash
-# Install Ollama: https://ollama.com
-ollama pull nemotron-mini
-python tools/chat.py
-```
-
-**Option B — With an API key:**
-```bash
-export GROQ_API_KEY=gsk_...   # free at console.groq.com
-python tools/chat.py
-```
-
-**Option C — On the website:**
-Open any article, click the 💬 button (or press `Ctrl+/`). Expand "Model & Settings" to pick a provider and paste your own API key. Keys stay in your browser — never sent to our server.
-
-### Search the corpus
+As a moderator, you should be comfortable with:
 
 ```bash
-python tools/search.py "plasma confinement"
-python tools/search.py "how do transformers work"
-```
+# Rebuild the search index after merging new content
+python tools/ingest.py
 
-### Transcribe audio/video
+# Verify new content is searchable
+python tools/search.py "topic from the new PR"
 
-```bash
-# Requires OPENAI_API_KEY (Whisper API)
-export OPENAI_API_KEY=sk-...
-python tools/transcribe.py podcast.mp3
-python tools/transcribe.py https://youtube.com/watch?v=xyz --qa
-```
-
-This generates a markdown transcript + optional Q&A study notes, saved to `corpus/transcripts/`.
-
-### Dev server with live AI chat
-
-```bash
+# Build and check the site
+python tools/build_site.py
 python tools/serve.py
-# Open http://localhost:8080
 ```
 
-This serves the built site AND provides a `/api/chat` endpoint for the in-page AI assistant. Uses Ollama by default.
+After merging a batch of PRs, rebuild the index and push the updated site. The embedding index (`corpus/generated/embeddings.json`) is gitignored — it's rebuilt on each machine.
+
+### Moderator checklist for a typical week
+
+- [ ] Review and merge (or give feedback on) open PRs within 48 hours
+- [ ] Run `python tools/ingest.py` after merging new content to keep search fresh
+- [ ] Spot-check that `/ask` and `/search` (Discord or web) return sensible results for new content
+- [ ] If someone's been active in Discord but hasn't contributed a note, nudge them: "That explanation you gave about X was great — want to turn it into a corpus note?"
+
+### Inviting new moderators
+
+When the community grows, you'll need more moderators. Look for people who:
+- Contribute regularly and write well-structured notes
+- Help others in Discord (answering questions, sharing resources)
+- Understand the purpose of the project (knowledge preservation, not content farming)
+
+Add them as collaborators on GitHub with write access.
 
 ---
 
-## Reader features on the site
+## Content guidelines
 
-Every article page has:
+These apply to everyone — contributors and moderators.
 
-- **Reader controls** (Aa button, bottom-right) — change font size, font family (including OpenDyslexic), line spacing, width, and theme (light/sepia/dark). Settings persist across visits.
-- **AI chat sidebar** (💬 button or Ctrl+/) — highlight text and ask AI about it, or just chat about the article.
-- **Table of contents** — auto-generated sidebar from your headings.
-
----
-
-## Guidelines
-
-- **One idea per file** — keep notes focused and searchable
-- **Use descriptive filenames** — `transformer-circuits-framework.md` not `notes.md`
-- **Tag generously** — helps search and discovery
-- **Credit sources** — link to original papers, talks, books
+- **One idea per file** — focused and searchable
+- **Descriptive filenames** — `transformer-circuits-framework.md`, not `notes.md`
+- **Tag generously** — powers search and discovery
+- **Credit sources** — link to original papers, talks, books, docs
 - **No proprietary content** — respect copyrights; your own notes and summaries are fine
-- **Be useful** — write for the person who'll read this in 6 months
+- **Be useful** — write for the next person, not for yourself
 
-## What makes a good note?
+## Reader features
 
-- Explains something you learned in your own words
-- Has clear structure (headings, bullet points, tables)
-- Links to primary sources
-- Includes practical details (commands, parameters, code)
-- Could teach the concept to a new community member
+Every published article on the site includes:
+- **Reader controls** (Aa button) — font size, font family (including OpenDyslexic), line spacing, width, theme (light/sepia/dark)
+- **AI chat sidebar** (💬 or Ctrl+/) — highlight text and ask about it, or chat about the whole article
+- **Table of contents** — auto-generated from your headings
 
 ## License
 
-- Content in `corpus/` → [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (share and adapt with attribution)
-- Code in `tools/`, `bot/`, `api/` → MIT
+- **Content** in `corpus/` → [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (share and adapt with attribution)
+- **Code** in `tools/`, `bot/`, `api/` → [MIT](LICENSE)
 
 ## Questions?
 
-Ask in the detroit.dev Discord or open a GitHub issue.
+Ask in the detroit.dev Discord or open a [GitHub issue](https://github.com/JacobHind/detroitdotdev/issues).

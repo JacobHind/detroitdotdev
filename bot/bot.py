@@ -1,28 +1,34 @@
 #!/usr/bin/env python3
-"""detroit.dev Discord bot — captures discussions into the corpus.
+"""detroit.dev Discord bot — search and chat with the corpus from Discord.
 
 Commands:
-  /capture [title] — save recent messages from this channel as a corpus note (creates a GitHub PR)
-  /ask [question]  — ask a question answered from the corpus
-  /search [query]  — search the corpus
-  /notes           — list recent corpus additions
+  /ask [question]    — RAG-powered Q&A against the corpus
+  /search [query]    — semantic search, returns top results
+  /capture [title]   — save recent messages as a corpus note (creates a GitHub PR)
+  /notes             — list recent corpus additions
 """
 
+import base64
 import os
 import re
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import discord
 import httpx
 from discord import app_commands
 from dotenv import load_dotenv
 
+# ── Import the RAG engine from tools/common.py ─────────────────
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+from common import semantic_search, retrieve_context
+
 load_dotenv()
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITHUB_REPO = os.environ.get("GITHUB_REPO", "detroitdotdev/corpus")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "JacobHind/detroitdotdev")
 NOTIFY_CHANNEL = os.environ.get("NOTIFICATION_CHANNEL_ID", "")
 
 intents = discord.Intents.default()
@@ -31,6 +37,38 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
+
+# ── LLM client (same multi-provider pattern as serve.py) ───────
+
+def get_llm_client():
+    """Return (OpenAI-client, model) using the best available provider.
+
+    Priority: GROQ_API_KEY > OPENROUTER_API_KEY > OPENAI_API_KEY > Ollama.
+    """
+    from openai import OpenAI
+
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        return OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1"), \
+               os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile")
+
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    if openrouter_key:
+        return OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1"), \
+               os.environ.get("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct")
+
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        base_url = os.environ.get("OPENAI_BASE_URL")
+        c = OpenAI(api_key=openai_key, base_url=base_url) if base_url else OpenAI(api_key=openai_key)
+        return c, os.environ.get("LLM_MODEL", "gpt-4o-mini")
+
+    # Fallback: local Ollama
+    return OpenAI(base_url="http://localhost:11434/v1", api_key="ollama"), \
+           os.environ.get("LLM_MODEL", "qwen3:4b")
+
+
+# ── Helpers ─────────────────────────────────────────────────────
 
 def slugify(text: str) -> str:
     """Convert text to a URL-friendly slug."""
@@ -101,8 +139,6 @@ async def create_github_pr(title: str, content: str, slug: str) -> str | None:
             return None
 
         # Create file
-        import base64
-
         r = await http.put(
             f"{api}/contents/{file_path}",
             headers=headers,
@@ -121,7 +157,11 @@ async def create_github_pr(title: str, content: str, slug: str) -> str | None:
             headers=headers,
             json={
                 "title": f"📝 Discord capture: {title}",
-                "body": f"Captured from Discord by the detroit.dev bot.\n\n**Messages**: {len(content.splitlines())} lines\n\n*Auto-generated — please review before merging.*",
+                "body": (
+                    f"Captured from Discord by the detroit.dev bot.\n\n"
+                    f"**Messages**: {len(content.splitlines())} lines\n\n"
+                    f"*Auto-generated — please review before merging.*"
+                ),
                 "head": branch,
                 "base": "main",
             },
@@ -132,36 +172,75 @@ async def create_github_pr(title: str, content: str, slug: str) -> str | None:
     return None
 
 
-async def ask_corpus(question: str) -> str:
-    """Ask a question using the site's API (or Groq directly)."""
-    if GROQ_API_KEY:
-        async with httpx.AsyncClient(timeout=30) as http:
-            r = await http.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are the detroit.dev assistant. Answer questions concisely based on your knowledge. If you don't know, say so.",
-                        },
-                        {"role": "user", "content": question},
-                    ],
-                    "max_tokens": 512,
-                },
-            )
-            if r.status_code == 200:
-                return r.json()["choices"][0]["message"]["content"]
-            return f"API error: {r.status_code}"
+def ask_corpus(question: str) -> str:
+    """RAG query: retrieve relevant chunks, send to LLM, return answer."""
+    context = retrieve_context(question, top_k=5)
 
-    return "No AI backend configured. Set GROQ_API_KEY in bot/.env"
+    system = (
+        "You are the detroit.dev assistant. Answer questions based on the "
+        "knowledge base excerpts provided below. Be concise and helpful. "
+        "If the context doesn't cover the question, say so honestly.\n\n"
+        f"=== RELEVANT CONTEXT ===\n{context}\n=== END CONTEXT ==="
+    )
+
+    try:
+        llm, model = get_llm_client()
+        resp = llm.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": question},
+            ],
+            max_tokens=600,
+        )
+        return resp.choices[0].message.content
+    except Exception as e:
+        return f"LLM error: {e}"
 
 
 # ── Slash Commands ──────────────────────────────────────────────
+
+
+@tree.command(name="ask", description="Ask a question answered from the corpus")
+@app_commands.describe(question="Your question")
+async def ask_command(interaction: discord.Interaction, question: str):
+    await interaction.response.defer(thinking=True)
+    answer = ask_corpus(question)
+    # Discord has a 2000 char limit
+    if len(answer) > 1900:
+        answer = answer[:1900] + "…"
+    await interaction.followup.send(f"**Q:** {question}\n\n{answer}")
+
+
+@tree.command(name="search", description="Semantic search across the corpus")
+@app_commands.describe(query="What are you looking for?")
+async def search_command(interaction: discord.Interaction, query: str):
+    await interaction.response.defer(thinking=True)
+
+    results = semantic_search(query, top_k=5)
+
+    if not results:
+        await interaction.followup.send(
+            "No results — the search index may not be built yet. "
+            "Run `python tools/ingest.py` on the server."
+        )
+        return
+
+    lines = [f"🔍 **Results for:** {query}\n"]
+    for i, (chunk, score) in enumerate(results, 1):
+        source = chunk["source"]
+        section = chunk["section"]
+        preview = chunk["text"][:200].replace("\n", " ")
+        if len(chunk["text"]) > 200:
+            preview += "…"
+        lines.append(f"**{i}. {section}** ({score:.0%} match)")
+        lines.append(f"   *{source}*")
+        lines.append(f"   {preview}\n")
+
+    reply = "\n".join(lines)
+    if len(reply) > 1900:
+        reply = reply[:1900] + "\n…"
+    await interaction.followup.send(reply)
 
 
 @tree.command(name="capture", description="Capture recent messages as a corpus note")
@@ -208,27 +287,6 @@ async def capture_command(
             f"📝 Preview of \"{title}\" ({len(messages)} messages):\n```md\n{preview}\n```\n"
             f"*Set GITHUB_TOKEN in bot/.env to auto-create PRs.*"
         )
-
-
-@tree.command(name="ask", description="Ask a question answered from the corpus")
-@app_commands.describe(question="Your question")
-async def ask_command(interaction: discord.Interaction, question: str):
-    await interaction.response.defer(thinking=True)
-    answer = await ask_corpus(question)
-    # Discord has a 2000 char limit
-    if len(answer) > 1900:
-        answer = answer[:1900] + "…"
-    await interaction.followup.send(f"**Q:** {question}\n\n{answer}")
-
-
-@tree.command(name="search", description="Search the corpus")
-@app_commands.describe(query="Search query")
-async def search_command(interaction: discord.Interaction, query: str):
-    await interaction.response.send_message(
-        f"🔍 Search isn't wired to the live corpus yet. "
-        f"Use the site: https://detroit.dev\n"
-        f"Or locally: `python tools/search.py \"{query}\"`"
-    )
 
 
 @tree.command(name="notes", description="List recent corpus additions")
